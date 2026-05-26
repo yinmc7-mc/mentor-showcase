@@ -2,7 +2,7 @@
 
 > Let a legendary product manager mentor you
 
-11 位顶级导师的思维蒸馏，一键安装到你的 AI Agent。
+12 位顶级导师的思维蒸馏，一键安装到你的 AI Agent。
 
 ## 在线访问
 
@@ -15,9 +15,10 @@
 |------|------|----------|
 | 乔布斯 Steve Jobs | 产品 / 设计 / 战略 | `npx skills add alchaincyf/steve-jobs-skill` |
 | 张小龙 Allen Zhang | 产品 / 克制 / 人性洞察 | `npx skills add yinmc7-mc/zhang-xiaolong-perspective` |
-| 刘强东 Richard Liu | 商业 / 供应链 / 效率 | `npx skills add yinmc7-mc/liu-qiangdong-perspective` |
+| 刘强东 Richard Liu | 产品 / 商业 / 效率 | `npx skills add yinmc7-mc/liu-qiangdong-perspective` |
 | 张一鸣 Zhang Yiming | 产品 / 组织 / 全球化 | `npx skills add alchaincyf/zhang-yiming-skill` |
 | 马斯克 Elon Musk | 工程 / 成本 / 第一性原理 | `npx skills add alchaincyf/elon-musk-skill` |
+| Dario Amodei Doris | AI / 安全 / Scaling | `npx skills add yinmc7-mc/dario-amodei-perspective` |
 | Paul Graham | 创业 / 投资 / 写作 | `npx skills add alchaincyf/paul-graham-skill` |
 | MrBeast | 内容 / 增长 / 执行力 | `npx skills add alchaincyf/mrbeast-skill` |
 | Ilya Sutskever | AI / 深度学习 | `npx skills add alchaincyf/ilya-sutskever-skill` |
