@@ -375,6 +375,9 @@
     font-size: 24px;
     flex-shrink: 0;
   }
+  .avatar svg {
+    width: 28px; height: 28px;
+  }
 
   .card-titles { flex: 1; min-width: 0; }
 
@@ -867,7 +870,7 @@
 <section id="mentors" class="container">
   <div class="stats-bar">
     <div class="stat-item">
-      <div class="num" id="mentorCount">10</div>
+      <div class="num" id="mentorCount">12</div>
       <div class="label">可用导师</div>
     </div>
     <div class="stat-item">
@@ -996,6 +999,16 @@ const mentors = [
     color: '#ff9500', repo: 'alchaincyf/elon-musk-skill'
   },
   {
+    id: 'dario', name: 'Dario Amodei', nameEn: 'Doris', emoji: '🧠',
+    category: ['产品', 'AI'], tagline: 'AI / 安全 / Scaling',
+    desc: 'Anthropic CEO。物理学家的严谨与CEO的务实——Scaling Laws的信徒，证明安全与速度可以共存。父亲因罕见病去世，定义了他做AI的理由：科学来得太慢，AI可以加速科学。',
+    models: ['Scaling Laws即物理定律', '压缩的21世纪', 'Race to the Top', '可解释性作为前提'],
+    quote: '"AI可能是人类最重要的技术，但前提是我们不能搞砸。"',
+    disclaimer: '来自公开资料',
+    logoSvg: '<svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><g fill="#d4a574" transform="translate(12,12)"><rect x="-1" y="-10" width="2" height="20" rx="1"/><rect x="-1" y="-10" width="2" height="20" rx="1" transform="rotate(60)"/><rect x="-1" y="-10" width="2" height="20" rx="1" transform="rotate(-60)"/></g></svg>',
+    color: '#d4a574', repo: 'yinmc7-mc/dario-amodei-perspective'
+  },
+  {
     id: 'graham', name: 'Paul Graham', nameEn: 'Paul Graham', emoji: '✍️',
     category: '产品', tagline: '创业 / 写作 / 产品直觉',
     desc: 'Y Combinator 联合创始人。洞悉创业本质的思想者，擅长从写作中发现好想法，教人独立思考而非遵循框架。',
@@ -1062,7 +1075,7 @@ function renderFilters() {
 
 function renderGrid(filter = '全部') {
   const grid = document.getElementById('grid');
-  const filtered = filter === '全部' ? mentors : mentors.filter(m => m.category === filter);
+  const filtered = filter === '全部' ? mentors : mentors.filter(m => Array.isArray(m.category) ? m.category.includes(filter) : m.category === filter);
   grid.innerHTML = filtered.map(m => {
     const featured = m.featured ? ' card-featured' : '';
     const videoHtml = (m.featured && m.videoUrl) ? `
@@ -1089,7 +1102,7 @@ function renderGrid(filter = '全部') {
       </button>
       ${layoutOpen}${contentWrap}
       <div class="card-header">
-        <div class="avatar" style="background:${m.color}15">${m.emoji}</div>
+        <div class="avatar" style="background:${m.color}15">${m.logoSvg ? m.logoSvg : m.emoji}</div>
         <div class="card-titles">
           <div class="card-name">${m.name} <span class="card-name-en">${m.nameEn}</span></div>
         </div>
