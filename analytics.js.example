@@ -1,0 +1,9 @@
+// 替换为你的百度统计代码
+// 从 https://tongji.baidu.com 获取
+var _hmt = _hmt || [];
+(function() {
+  var hm = document.createElement("script");
+  hm.src = "https://hm.baidu.com/hm.js?YOUR_SITE_ID";
+  var s = document.getElementsByTagName("script")[0];
+  s.parentNode.insertBefore(hm, s);
+})();

@@ -1,0 +1,5 @@
+# Analytics (contains tracking ID, not for public)
+analytics.js
+
+# OS files
+.DS_Store
