@@ -2,7 +2,7 @@
 
 > Let a legendary product manager mentor you
 
-12 位顶级导师的思维蒸馏，一键安装到你的 AI Agent。
+13 位顶级导师的思维蒸馏，一键安装到你的 AI Agent。
 
 ## 在线访问
 
@@ -25,6 +25,7 @@
 | Andrej Karpathy | AI / 工程 / 教育 | `npx skills add alchaincyf/karpathy-skill` |
 | X 导师 | 运营 / 写作 / 增长 | `npx skills add alchaincyf/x-mentor-skill` |
 | 查理·芒格 Charlie Munger | 投资 / 思维模型 | `npx skills add alchaincyf/munger-skill` |
+| Manus 团队 Manus Team | AI Agent / 上下文工程 / 行动优先 | `npx skills add yinmc7-mc/manus-team-perspective` |
 
 ## 如何使用
 
