@@ -6,8 +6,8 @@
 
 ## 在线访问
 
+- 国内：[ymacy.top](http://ymacy.top) 或 [ymacy.top/pm](http://ymacy.top/pm)
 - 海外：[mentor-showcase.vercel.app](https://mentor-showcase.vercel.app)
-- 国内：[www.ymacy.top](https://www.ymacy.top)
 
 ## 导师列表
 
