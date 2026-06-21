@@ -389,17 +389,18 @@ const LLM_CONFIGS = {
     baseURL: 'https://open.bigmodel.cn/api/paas/v4/chat/completions',
     headers: (apiKey) => ({
       'Authorization': `Bearer ${apiKey}`,
-      'content-type': 'application/json'
+      'content-type': 'application/json',
+      'Accept': 'application/json'  // Explicitly request JSON, not stream
     }),
     body: (system, user) => ({
-      model: 'glm-4-flash',  // Changed from glm-4 to glm-4-flash for Coding Plan compatibility
+      model: 'glm-4-flash',
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user }
       ],
       max_tokens: 4096,
-      temperature: 0.7,
-      stream: false  // Disable streaming for API key testing
+      temperature: 0.7
+      // No stream parameter - let GLM use default
     }),
     parseResponse: (data) => {
       if (data.choices && data.choices[0] && data.choices[0].message) {
@@ -637,22 +638,24 @@ app.post('/api/chat/stream', async (req, res) => {
         const errorText = await response.text();
         res.write(`event: error\ndata: ${JSON.stringify({
           error: `LLM API 调用失败: ${response.status}`,
+          details: errorText,
           hint: getErrorHint(response.status, finalModel)
         })}\n\n`);
         return res.end();
       }
 
-      // Check if response is streaming (GLM sends SSE)
+      // Check content type first
       const contentType = response.headers.get('content-type') || '';
-      const isStreaming = contentType.includes('text/event-stream') || body.stream;
 
-      if (isStreaming) {
-        // Handle streaming response from GLM
-        // Use Node.js Stream instead of Web Streams API for better compatibility
+      // GLM API returns SSE stream - handle it properly
+      if (contentType.includes('text/event-stream')) {
         try {
-          for await (const chunk of response.body) {
-            const text = chunk.toString();
-            const lines = text.split('\n');
+          // Convert response.body to string for SSE parsing
+          let rawData = '';
+          response.body.on('data', (chunk) => {
+            rawData += chunk.toString();
+            const lines = rawData.split('\n');
+            rawData = lines.pop() || ''; // Keep incomplete line in buffer
 
             for (const line of lines) {
               if (line.startsWith('data:')) {
@@ -661,12 +664,9 @@ app.post('/api/chat/stream', async (req, res) => {
                   if (jsonStr === '[DONE]' || jsonStr === '') continue;
 
                   const data = JSON.parse(jsonStr);
-
-                  // GLM streaming format
                   if (data.choices && data.choices[0] && data.choices[0].delta) {
                     const content = data.choices[0].delta.content || '';
                     if (content) {
-                      // Forward chunk directly to client (real-time streaming)
                       res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
                     }
                   }
@@ -675,13 +675,21 @@ app.post('/api/chat/stream', async (req, res) => {
                 }
               }
             }
-          }
+          });
 
-          res.write(`event: done\ndata: ${JSON.stringify({ done: true })}\n\n`);
-          res.end();
+          response.body.on('end', () => {
+            res.write(`event: done\ndata: ${JSON.stringify({ done: true })}\n\n`);
+            res.end();
+          });
+
+          response.body.on('error', (err) => {
+            console.error('Stream error:', err);
+            res.write(`event: error\ndata: ${JSON.stringify({ error: '流式响应处理失败' })}\n\n`);
+            res.end();
+          });
         } catch (streamError) {
-          console.error('Stream reading error:', streamError);
-          res.write(`event: error\ndata: ${JSON.stringify({ error: '流式响应处理失败' })}\n\n`);
+          console.error('Stream setup error:', streamError);
+          res.write(`event: error\ndata: ${JSON.stringify({ error: '流式响应设置失败' })}\n\n`);
           res.end();
         }
       } else {
