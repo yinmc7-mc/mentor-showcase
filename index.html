@@ -3457,6 +3457,31 @@ async function simulateTryApiCall(question) {
   if (apiSettings) {
     // Use real API call with streaming
     try {
+      // Check if the API key is the placeholder/fake one
+      if (apiSettings.apiKey === 'your-api-key-here' || apiSettings.apiKey === 'fake-key-for-demo') {
+        finalResponse = `⚠️ 请配置您的 API Key
+
+**使用步骤：**
+
+1. **获取 API Key**
+   - 访问智谱 AI：https://open.bigmodel.cn/usercenter/apikeys
+   - 或选择其他 LLM 提供商
+
+2. **配置 API Key**
+   - 点击页面右上角 **"配置 API Key"**
+   - 粘贴您的 API Key
+   - 选择模型类型
+
+**免费版本敬请期待！**
+
+目前请使用您自己的 API Key 体验与顶级导师的对话。`;
+
+        await streamResponse(finalResponse);
+        showTryTyping(false);
+        return finalResponse;
+      }
+
+      // Create streaming bubble first
       // Create streaming bubble first
       const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
