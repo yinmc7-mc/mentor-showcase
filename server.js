@@ -399,7 +399,7 @@ const LLM_CONFIGS = {
       ],
       max_tokens: 4096,
       temperature: 0.7,
-      stream: true  // Enable streaming
+      stream: false  // Disable streaming for API key testing
     }),
     parseResponse: (data) => {
       if (data.choices && data.choices[0] && data.choices[0].message) {
