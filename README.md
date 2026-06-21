@@ -11,10 +11,7 @@
 
 ## ✨ 在线体验
 
-| 区域 | 访问地址 |
-|------|----------|
-| 国内 | [ymacy.top](http://ymacy.top) |
-| 海外 | [mentor-showcase.vercel.app](https://mentor-showcase.vercel.app) |
+**体验地址：** [mentor-showcase-production.up.railway.app](https://mentor-showcase-production.up.railway.app)
 
 ---
 
