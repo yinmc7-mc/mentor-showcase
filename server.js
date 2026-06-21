@@ -644,46 +644,46 @@ app.post('/api/chat/stream', async (req, res) => {
 
       // Check if response is streaming (GLM sends SSE)
       const contentType = response.headers.get('content-type') || '';
+      const isStreaming = contentType.includes('text/event-stream') || body.stream;
 
-      if (contentType.includes('text/event-stream') || body.stream) {
+      if (isStreaming) {
         // Handle streaming response from GLM
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = '';
+        // Use Node.js Stream instead of Web Streams API for better compatibility
+        try {
+          for await (const chunk of response.body) {
+            const text = chunk.toString();
+            const lines = text.split('\n');
 
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
+            for (const line of lines) {
+              if (line.startsWith('data:')) {
+                try {
+                  const jsonStr = line.slice(5).trim();
+                  if (jsonStr === '[DONE]' || jsonStr === '') continue;
 
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split('\n');
-          buffer = lines.pop();
+                  const data = JSON.parse(jsonStr);
 
-          for (const line of lines) {
-            if (line.startsWith('data:')) {
-              try {
-                const jsonStr = line.slice(5).trim();
-                if (jsonStr === '[DONE]') continue;
-
-                const data = JSON.parse(jsonStr);
-
-                // GLM streaming format
-                if (data.choices && data.choices[0] && data.choices[0].delta) {
-                  const chunk = data.choices[0].delta.content || '';
-                  if (chunk) {
-                    // Forward chunk directly to client (real-time streaming)
-                    res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+                  // GLM streaming format
+                  if (data.choices && data.choices[0] && data.choices[0].delta) {
+                    const content = data.choices[0].delta.content || '';
+                    if (content) {
+                      // Forward chunk directly to client (real-time streaming)
+                      res.write(`data: ${JSON.stringify({ chunk: content })}\n\n`);
+                    }
                   }
+                } catch (e) {
+                  console.error('Error parsing GLM stream:', e);
                 }
-              } catch (e) {
-                console.error('Error parsing GLM stream:', e);
               }
             }
           }
-        }
 
-        res.write(`event: done\ndata: ${JSON.stringify({ done: true })}\n\n`);
-        res.end();
+          res.write(`event: done\ndata: ${JSON.stringify({ done: true })}\n\n`);
+          res.end();
+        } catch (streamError) {
+          console.error('Stream reading error:', streamError);
+          res.write(`event: error\ndata: ${JSON.stringify({ error: '流式响应处理失败' })}\n\n`);
+          res.end();
+        }
       } else {
         // Fallback: non-streaming response
         const data = await response.json();
