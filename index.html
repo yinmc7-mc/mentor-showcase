@@ -2667,6 +2667,7 @@ function selectTryMentor(id) {
   currentTryMentor = tryMentors.find(m => m.id === id);
   renderTryMentorChips();
   updateTryPlaceholder();
+  updateSendButtonState(); // Update button state when switching mentors
 }
 
 // Show favorites modal
@@ -3022,27 +3023,32 @@ function appendResponseChunk(chunk) {
   }
 }
 
-async function streamResponse(text) {
-  const messagesArea = document.getElementById('tryMessages');
+async function streamResponse(text, existingBubble = null) {
+  let bubble;
+  const messagesArea = document.getElementById('tryMessages'); // Get messagesArea for scrolling
 
-  // Create a new message element for streaming
-  const messageDiv = document.createElement('div');
-  messageDiv.className = 'try-message mentor';
+  if (existingBubble) {
+    // Use existing bubble (created by caller)
+    bubble = existingBubble;
+  } else {
+    // Create a new message element for streaming
+    const messageDiv = document.createElement('div');
+    messageDiv.className = 'try-message mentor';
 
-  const avatar = currentTryMentor.emoji;
-  const roleName = currentTryMentor.name;
+    const avatar = currentTryMentor.emoji;
+    const roleName = currentTryMentor.name;
 
-  messageDiv.innerHTML = `
-    <div class="try-message-avatar">${avatar}</div>
-    <div class="try-message-content">
-      <div class="try-message-role">${roleName}</div>
-      <div class="try-message-bubble" id="streaming-bubble"><span class="stream-cursor"></span></div>
-    </div>
-  `;
+    messageDiv.innerHTML = `
+      <div class="try-message-avatar">${avatar}</div>
+      <div class="try-message-content">
+        <div class="try-message-role">${roleName}</div>
+        <div class="try-message-bubble" id="streaming-bubble"><span class="stream-cursor"></span></div>
+      </div>
+    `;
 
-  messagesArea.appendChild(messageDiv);
-
-  const bubble = messageDiv.querySelector('#streaming-bubble');
+    messagesArea.appendChild(messageDiv);
+    bubble = messageDiv.querySelector('#streaming-bubble');
+  }
 
   // Stream text character by character
   for (let i = 0; i < text.length; i++) {
@@ -3325,12 +3331,24 @@ function updateSendButtonState() {
   const hasMessage = inputField.value.trim().length > 0;
   const apiSectionVisible = apiSection?.style.display === 'block';
   const hasApiKey = apiKeyInput?.value.trim().length > 0;
-  const hasFreeQuota = getTotalTestQuotaRemaining() > 0;
+
+  // Check current mentor's test quota (not total quota)
+  const currentMentorQuota = currentTryMentor ? getMentorTestQuota(currentTryMentor.id) : 0;
+  const hasFreeQuota = currentMentorQuota > 0;
 
   // Enable if:
   // - API section visible, has API key and has message
-  // - OR API section not visible, has free quota and has message
+  // - OR API section not visible, has free quota for current mentor and has message
   sendBtn.disabled = !((apiSectionVisible && hasApiKey && hasMessage) || (!apiSectionVisible && hasFreeQuota && hasMessage));
+
+  // Add tooltip when disabled due to quota exhaustion
+  if (!apiSectionVisible && !hasFreeQuota && hasMessage) {
+    sendBtn.title = '该导师的测试机会已用完';
+    sendBtn.style.cursor = 'not-allowed';
+  } else {
+    sendBtn.title = '';
+    sendBtn.style.cursor = '';
+  }
 }
 
 function showApiGuide(event) {
@@ -3574,25 +3592,11 @@ node server.js
 
       messagesArea.appendChild(messageDiv);
 
+      // Get the bubble and pass it to streamResponse to avoid duplication
+      const bubble = messageDiv.querySelector('#streaming-bubble');
+
       // Stream the mock response for effect
-      await streamResponse(finalResponse);
-
-      // Finalize streaming bubble
-      const bubble = document.getElementById('streaming-bubble');
-      if (bubble) {
-        const cursor = bubble.querySelector('.stream-cursor');
-        if (cursor) cursor.remove();
-
-        const processedContent = processContent(finalResponse);
-        bubble.innerHTML = processedContent;
-
-        addMessageActions(bubble);
-
-        const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        bubble.id = messageId;
-
-        saveToHistory('mentor', finalResponse, null);
-      }
+      await streamResponse(finalResponse, bubble);
 
       showTryTyping(false);
     } catch (error) {
