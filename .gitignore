@@ -3,3 +3,4 @@ analytics.js
 
 # OS files
 .DS_Store
+.env
