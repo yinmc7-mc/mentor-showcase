@@ -2667,7 +2667,8 @@ function selectTryMentor(id) {
   currentTryMentor = tryMentors.find(m => m.id === id);
   renderTryMentorChips();
   updateTryPlaceholder();
-  updateSendButtonState(); // Update button state when switching mentors
+  updateSendButtonState();
+  updateInputStateForQuota(); // Update input state based on quota
 }
 
 // Show favorites modal
@@ -3181,6 +3182,7 @@ function deleteApiConfig() {
 
   // Update display to show free quota
   updateQuotaDisplay();
+  updateInputStateForQuota(); // Update input state after removing API key
 
   // Show confirmation message
   const inputArea = document.querySelector('.try-input-area');
@@ -3242,6 +3244,7 @@ function confirmApiKey() {
 
   // Update quota display to show unlimited status
   updateQuotaDisplay();
+  updateInputStateForQuota(); // Enable input after API key config
 
   // Show success message
   const inputArea = document.querySelector('.try-input-area');
@@ -3348,6 +3351,40 @@ function updateSendButtonState() {
   } else {
     sendBtn.title = '';
     sendBtn.style.cursor = '';
+  }
+}
+
+// Update input field state based on quota
+function updateInputStateForQuota() {
+  const inputField = document.getElementById('tryInputField');
+  const apiSection = document.getElementById('apiSection');
+  if (!inputField) return;
+
+  const apiSectionVisible = apiSection?.style.display === 'block';
+  const hasApiKey = localStorage.getItem(API_KEY_STORAGE);
+
+  // If using free tier, check current mentor's quota
+  if (!apiSectionVisible && !hasApiKey) {
+    const currentMentorQuota = currentTryMentor ? getMentorTestQuota(currentTryMentor.id) : 0;
+    if (currentMentorQuota <= 0) {
+      // Disable input and show message
+      inputField.disabled = true;
+      inputField.placeholder = '该导师的测试机会已用完，请添加自己的 API Key 开启畅聊';
+      inputField.style.backgroundColor = 'var(--parchment)';
+      inputField.style.cursor = 'not-allowed';
+    } else {
+      // Enable input
+      inputField.disabled = false;
+      inputField.placeholder = `向${currentTryMentor.name}提出或探讨你的问题...`;
+      inputField.style.backgroundColor = '';
+      inputField.style.cursor = '';
+    }
+  } else {
+    // Has API key, enable input
+    inputField.disabled = false;
+    inputField.placeholder = `向${currentTryMentor.name}提出或探讨你的问题...`;
+    inputField.style.backgroundColor = '';
+    inputField.style.cursor = '';
   }
 }
 
@@ -3696,6 +3733,7 @@ async function sendTryMessage() {
     if (!apiSettings) {
       decrementMentorTestQuota(currentTryMentor.id);
       updateQuotaDisplay();
+      updateInputStateForQuota(); // Update input state after quota change
     }
   } catch (error) {
     // Show error in existing bubble if present, otherwise create new one
@@ -3789,6 +3827,7 @@ function initTrySection() {
   renderTryMentorChips();
   updateQuotaDisplay();
   updateTryPlaceholder();
+  updateInputStateForQuota(); // Initialize input state based on quota
   loadApiKeySettings(); // Load saved API key settings
 
   // Check server health on load
