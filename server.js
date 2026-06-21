@@ -392,7 +392,7 @@ const LLM_CONFIGS = {
       'content-type': 'application/json'
     }),
     body: (system, user) => ({
-      model: 'glm-4',
+      model: 'glm-4-flash',  // Changed from glm-4 to glm-4-flash for Coding Plan compatibility
       messages: [
         { role: 'system', content: system },
         { role: 'user', content: user }
