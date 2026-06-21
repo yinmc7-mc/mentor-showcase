@@ -3357,6 +3357,7 @@ function updateSendButtonState() {
 // Update input field state based on quota
 function updateInputStateForQuota() {
   const inputField = document.getElementById('tryInputField');
+  const sendBtn = document.getElementById('trySendBtn');
   const apiSection = document.getElementById('apiSection');
   if (!inputField) return;
 
@@ -3369,22 +3370,53 @@ function updateInputStateForQuota() {
     if (currentMentorQuota <= 0) {
       // Disable input and show message
       inputField.disabled = true;
+      inputField.value = ''; // Clear any input
       inputField.placeholder = '该导师的测试机会已用完，请添加自己的 API Key 开启畅聊';
-      inputField.style.backgroundColor = 'var(--parchment)';
+      inputField.style.backgroundColor = '#f5f5f7';
+      inputField.style.color = '#999';
       inputField.style.cursor = 'not-allowed';
+      inputField.style.pointerEvents = 'none';
+      inputField.style.opacity = '0.6';
+
+      // Also disable send button
+      if (sendBtn) {
+        sendBtn.disabled = true;
+        sendBtn.style.opacity = '0.5';
+        sendBtn.style.cursor = 'not-allowed';
+      }
     } else {
       // Enable input
       inputField.disabled = false;
       inputField.placeholder = `向${currentTryMentor.name}提出或探讨你的问题...`;
       inputField.style.backgroundColor = '';
+      inputField.style.color = '';
       inputField.style.cursor = '';
+      inputField.style.pointerEvents = '';
+      inputField.style.opacity = '';
+
+      // Enable send button
+      if (sendBtn) {
+        sendBtn.disabled = false;
+        sendBtn.style.opacity = '';
+        sendBtn.style.cursor = '';
+      }
     }
   } else {
     // Has API key, enable input
     inputField.disabled = false;
     inputField.placeholder = `向${currentTryMentor.name}提出或探讨你的问题...`;
     inputField.style.backgroundColor = '';
+    inputField.style.color = '';
     inputField.style.cursor = '';
+    inputField.style.pointerEvents = '';
+    inputField.style.opacity = '';
+
+    // Enable send button
+    if (sendBtn) {
+      sendBtn.disabled = false;
+      sendBtn.style.opacity = '';
+      sendBtn.style.cursor = '';
+    }
   }
 }
 
