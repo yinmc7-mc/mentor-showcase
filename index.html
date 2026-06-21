@@ -3539,11 +3539,24 @@ node server.js
       } else {
         finalResponse = `❌ API 调用失败：${error.message}\n\n请检查：\n1. API Key 是否正确\n2. 模型是否支持\n3. 网络连接是否正常`;
       }
+
+      // Update bubble with error message
+      const bubble = document.getElementById('streaming-bubble');
+      if (bubble) {
+        const cursor = bubble.querySelector('.stream-cursor');
+        if (cursor) cursor.remove();
+        bubble.innerHTML = finalResponse;
+        addMessageActions(bubble);
+      }
     }
   } else {
-    // Use free tier — call real backend with GLM_API_KEY
+    // Use test mode — use mock responses
     try {
-      // Create streaming bubble
+      // Get the simulated response
+      const responseText = getSimulatedResponse(currentTryMentor.id);
+      finalResponse = responseText;
+
+      // Create streaming bubble first
       const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'try-message mentor';
@@ -3561,25 +3574,8 @@ node server.js
 
       messagesArea.appendChild(messageDiv);
 
-      window.responseText = '';
-      await callMentorApiStream(
-        question,
-        currentTryMentor.id,
-        null,
-        (chunk) => {
-          if (!chunk || chunk.length === 0) return;
-
-          if (window.responseText === '') {
-            stopPhraseRotation();
-            updateTypingStatus(`${currentTryMentor.name}正在回答...`);
-          }
-
-          window.responseText += chunk;
-          appendResponseChunk(chunk);
-        }
-      );
-
-      finalResponse = window.responseText;
+      // Stream the mock response for effect
+      await streamResponse(finalResponse);
 
       // Finalize streaming bubble
       const bubble = document.getElementById('streaming-bubble');
@@ -3603,11 +3599,8 @@ node server.js
       stopPhraseRotation();
       showTryTyping(false);
 
-      if (error.message === 'Failed to fetch') {
-        finalResponse = `❌ 后端服务未启动\n\n请启动后端服务：\n\`\`\`bash\ncd /tmp/mentor-showcase\nnode server.js\n\`\`\`\n\n然后在浏览器控制台检查连接状态。`;
-      } else {
-        finalResponse = `❌ API 调用失败：${error.message}\n\n请检查网络连接是否正常。`;
-      }
+      // Error handling for test mode
+      finalResponse = `❌ 回复生成失败：${error.message}\n\n请刷新页面重试。`;
 
       const bubble = document.getElementById('streaming-bubble');
       if (bubble) {
