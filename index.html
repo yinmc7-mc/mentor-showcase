@@ -3568,12 +3568,8 @@ node server.js
       }
     }
   } else {
-    // Use test mode — use mock responses
+    // Use test mode — call real API with free tier
     try {
-      // Get the simulated response
-      const responseText = getSimulatedResponse(currentTryMentor.id);
-      finalResponse = responseText;
-
       // Create streaming bubble first
       const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
@@ -3592,13 +3588,32 @@ node server.js
 
       messagesArea.appendChild(messageDiv);
 
-      // Get the bubble and pass it to streamResponse to avoid duplication
+      // Get the bubble
       const bubble = messageDiv.querySelector('#streaming-bubble');
 
-      // Stream the mock response for effect
-      await streamResponse(finalResponse, bubble);
+      window.responseText = '';
+
+      // Call real API with free tier (pass null/undefined to trigger free tier)
+      await callMentorApiStream(
+        question,
+        currentTryMentor.id,
+        null,  // null means use free tier
+        (chunk) => {
+          if (!chunk || chunk.length === 0) return;
+
+          // First chunk means API started responding
+          if (window.responseText === '') {
+            stopPhraseRotation();
+            updateTypingStatus(`${currentTryMentor.name}正在回答...`);
+          }
+
+          window.responseText += chunk;
+          appendResponseChunk(chunk);
+        }
+      );
 
       showTryTyping(false);
+      finalResponse = window.responseText;
     } catch (error) {
       stopPhraseRotation();
       showTryTyping(false);
