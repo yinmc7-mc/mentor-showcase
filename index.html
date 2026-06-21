@@ -1923,7 +1923,7 @@
     <div class="try-card">
       <div class="try-header">
         <h2>立即体验 · 无需安装</h2>
-        <p>选择导师，直接对话。每日 <span class="highlight">10 次</span>免费额度</p>
+        <p>选择导师，直接对话。每个导师 <span class="highlight">1 次</span>测试机会</p>
       </div>
 
       <!-- Mentor Selector -->
@@ -1959,9 +1959,9 @@
       <!-- Input Area -->
       <div class="try-input-area">
         <div class="try-quota-info">
-          今日剩余: <span class="quota-count" id="quotaCount">10</span> / 10 次
+          测试机会: <span class="quota-count" id="quotaCount">13</span> / 13 次
           <button class="try-upgrade-tip" onclick="toggleApiConfig()">
-            💡 输入自己的 API Key，可本地安全无限畅聊
+            💡 配置 API Key 后可畅享海量真实对话
           </button>
         </div>
         <div class="try-input-wrapper">
@@ -2437,10 +2437,8 @@ renderGrid();
 
 // ─── Try Now Section ───
 
-// Quota management
-const DAILY_QUOTA = 10;
-const QUOTA_KEY = 'mentor-daily-quota';
-const QUOTA_DATE_KEY = 'mentor-quota-date';
+// Test quota management (1 test per mentor)
+const MENTOR_TEST_QUOTA_KEY = 'mentor-test-quota-'; // Will append mentor ID
 
 // Conversation history
 const HISTORY_KEY = 'mentor-conversation-history';
@@ -2514,27 +2512,29 @@ function exportConversation() {
   URL.revokeObjectURL(url);
 }
 
-function getTodayQuota() {
-  const today = new Date().toDateString();
-  const savedDate = localStorage.getItem(QUOTA_DATE_KEY);
-
-  if (savedDate !== today) {
-    // New day, reset quota
-    localStorage.setItem(QUOTA_DATE_KEY, today);
-    localStorage.setItem(QUOTA_KEY, DAILY_QUOTA.toString());
-    return DAILY_QUOTA;
-  }
-
-  return parseInt(localStorage.getItem(QUOTA_KEY) || DAILY_QUOTA.toString());
+function getMentorTestQuota(mentorId) {
+  const key = MENTOR_TEST_QUOTA_KEY + mentorId;
+  const used = localStorage.getItem(key);
+  // Return 1 if not used, 0 if used
+  return used ? 0 : 1;
 }
 
-function decrementQuota() {
-  const current = getTodayQuota();
-  if (current > 0) {
-    localStorage.setItem(QUOTA_KEY, (current - 1).toString());
+function decrementMentorTestQuota(mentorId) {
+  const key = MENTOR_TEST_QUOTA_KEY + mentorId;
+  const used = localStorage.getItem(key);
+  if (!used) {
+    localStorage.setItem(key, 'true');
     return true;
   }
   return false;
+}
+
+function getTotalTestQuotaRemaining() {
+  let remaining = 0;
+  mentors.forEach(mentor => {
+    remaining += getMentorTestQuota(mentor.id);
+  });
+  return remaining;
 }
 
 function updateQuotaDisplay() {
@@ -2552,7 +2552,7 @@ function updateQuotaDisplay() {
     const modelName = getModelDisplayName(model);
 
     quotaInfo.innerHTML = `
-      <span style="color: var(--green); font-weight: 600;">✅ 已配置完毕</span>
+      <span style="color: var(--green); font-weight: 600;">✅ 已配置 API Key</span>
       <span style="color: var(--ink-muted-48); margin: 0 8px;">|</span>
       <span style="color: var(--blue);">${modelName} · 无限畅聊</span>
       <button class="try-config-edit-btn" onclick="editApiConfig()">✏️ 修改</button>
@@ -2563,8 +2563,8 @@ function updateQuotaDisplay() {
       upgradeTip.style.display = 'none';
     }
   } else {
-    // User hasn't configured API key - show free quota
-    const remaining = getTodayQuota();
+    // User hasn't configured API key - show test quota
+    const remaining = getTotalTestQuotaRemaining();
     const quotaCount = document.getElementById('quotaCount');
     if (quotaCount) {
       quotaCount.textContent = remaining;
@@ -2575,7 +2575,7 @@ function updateQuotaDisplay() {
       upgradeTip.style.display = 'block';
     }
 
-    // Disable input if quota exhausted
+    // Disable input if all tests used
     const inputField = document.getElementById('tryInputField');
     const sendBtn = document.getElementById('trySendBtn');
 
@@ -2607,7 +2607,7 @@ function showQuotaExhausted() {
     const exhaustedDiv = document.createElement('div');
     exhaustedDiv.className = 'try-quota-exhausted';
     exhaustedDiv.innerHTML = `
-      <span>🎁 今日免费额度已用完</span>
+      <span>🎁 所有测试机会已用完</span>
       <span style="margin-left: 8px;">👇</span>
     `;
     messagesArea.appendChild(exhaustedDiv);
@@ -3325,7 +3325,7 @@ function updateSendButtonState() {
   const hasMessage = inputField.value.trim().length > 0;
   const apiSectionVisible = apiSection?.style.display === 'block';
   const hasApiKey = apiKeyInput?.value.trim().length > 0;
-  const hasFreeQuota = getTodayQuota() > 0;
+  const hasFreeQuota = getTotalTestQuotaRemaining() > 0;
 
   // Enable if:
   // - API section visible, has API key and has message
@@ -3636,8 +3636,8 @@ async function sendTryMessage() {
   // Check if using own API key or free tier
   const apiSettings = getApiKeySettings();
 
-  // If using free tier, check quota
-  if (!apiSettings && getTodayQuota() <= 0) {
+  // If using free tier, check this mentor's test quota
+  if (!apiSettings && getMentorTestQuota(currentTryMentor.id) <= 0) {
     showQuotaExhausted();
     return;
   }
@@ -3682,7 +3682,7 @@ async function sendTryMessage() {
 
     // Only decrement quota for free tier
     if (!apiSettings) {
-      decrementQuota();
+      decrementMentorTestQuota(currentTryMentor.id);
       updateQuotaDisplay();
     }
   } catch (error) {
@@ -3713,7 +3713,7 @@ node server.js
     }
   } finally {
     // Re-enable input
-    const remaining = getTodayQuota();
+    const remaining = getTotalTestQuotaRemaining();
     const stillHasQuota = remaining > 0 || apiSettings; // Has quota or using own key
 
     if (stillHasQuota) {
