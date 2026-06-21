@@ -8,6 +8,7 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 app.use(cors());
 app.use(express.json());
+app.use(express.static('.')); // Serve static files
 
 // 导师思维框架（简化版系统提示词）
 const MENTOR_SYSTEM_PROMPTS = {
