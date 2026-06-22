@@ -2632,6 +2632,7 @@ const tryMentors = [
 ];
 
 let currentTryMentor = tryMentors[0];
+let currentAbortController = null; // Abort previous stream on mentor switch
 
 // Render mentor chips
 function renderTryMentorChips(mentorsToShow = tryMentors) {
@@ -2664,6 +2665,12 @@ function filterMentors() {
 }
 
 function selectTryMentor(id) {
+  // Abort any in-progress stream
+  if (currentAbortController) {
+    currentAbortController.abort();
+    currentAbortController = null;
+  }
+
   currentTryMentor = tryMentors.find(m => m.id === id);
   renderTryMentorChips();
   updateTryPlaceholder();
@@ -3008,17 +3015,15 @@ function getSimulatedResponse(mentorId) {
 3. 最小的可行行动是什么`;
 }
 
-// Stream response character by character
-// Append a chunk of text to the streaming bubble
-function appendResponseChunk(chunk) {
-  const streamingBubble = document.getElementById('streaming-bubble');
+// Append a chunk of text to a streaming bubble
+function appendResponseChunk(chunk, bubble) {
   const messagesArea = document.getElementById('tryMessages');
 
-  if (streamingBubble) {
+  if (bubble) {
     // Get current text (without cursor)
-    let currentText = streamingBubble.innerHTML.replace('<span class="stream-cursor"></span>', '');
+    let currentText = bubble.innerHTML.replace('<span class="stream-cursor"></span>', '');
     // Append new chunk
-    streamingBubble.innerHTML = currentText + chunk + '<span class="stream-cursor"></span>';
+    bubble.innerHTML = currentText + chunk + '<span class="stream-cursor"></span>';
     // Auto scroll to bottom
     messagesArea.scrollTop = messagesArea.scrollHeight;
   }
@@ -3043,12 +3048,12 @@ async function streamResponse(text, existingBubble = null) {
       <div class="try-message-avatar">${avatar}</div>
       <div class="try-message-content">
         <div class="try-message-role">${roleName}</div>
-        <div class="try-message-bubble" id="streaming-bubble"><span class="stream-cursor"></span></div>
+        <div class="try-message-bubble streaming-bubble"><span class="stream-cursor"></span></div>
       </div>
     `;
 
     messagesArea.appendChild(messageDiv);
-    bubble = messageDiv.querySelector('#streaming-bubble');
+    bubble = messageDiv.querySelector('.streaming-bubble');
   }
 
   // Stream text character by character
@@ -3452,7 +3457,7 @@ async function callMentorApi(question, mentorId, settings) {
 }
 
 // Stream API call for real-time output
-async function callMentorApiStream(question, mentorId, settings, onChunk) {
+async function callMentorApiStream(question, mentorId, settings, onChunk, signal) {
   const API_ENDPOINT = '/api/chat/stream';
 
   const response = await fetch(API_ENDPOINT, {
@@ -3466,7 +3471,8 @@ async function callMentorApiStream(question, mentorId, settings, onChunk) {
       apiKey: settings?.apiKey,
       model: settings?.model || 'claude',
       useFreeTier: !settings
-    })
+    }),
+    signal
   });
 
   if (!response.ok) {
@@ -3492,12 +3498,14 @@ async function callMentorApiStream(question, mentorId, settings, onChunk) {
           if (data.chunk) {
             onChunk(data.chunk);
           } else if (data.error) {
-            throw new Error(data.error);
+            const errMsg = data.hint || data.details || data.error;
+            throw new Error(errMsg);
           } else if (data.done) {
             return;
           }
         } catch (e) {
-          console.error('Error parsing SSE data:', e);
+          if (e.name === 'AbortError') throw e;
+          throw e;
         }
       }
     }
@@ -3543,8 +3551,8 @@ async function simulateTryApiCall(question) {
 
   if (apiSettings) {
     // Use real API call with streaming
-    try {
-      // Check if the API key is the placeholder/fake one
+    const messagesArea = document.getElementById('tryMessages');
+    try {      // Check if the API key is the placeholder/fake one
       if (apiSettings.apiKey === 'your-api-key-here' || apiSettings.apiKey === 'fake-key-for-demo') {
         finalResponse = `⚠️ 请配置您的 API Key
 
@@ -3569,8 +3577,6 @@ async function simulateTryApiCall(question) {
       }
 
       // Create streaming bubble first
-      // Create streaming bubble first
-      const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'try-message mentor';
 
@@ -3581,13 +3587,19 @@ async function simulateTryApiCall(question) {
         <div class="try-message-avatar">${avatar}</div>
         <div class="try-message-content">
           <div class="try-message-role">${roleName}</div>
-          <div class="try-message-bubble" id="streaming-bubble"><span class="stream-cursor"></span></div>
+          <div class="try-message-bubble streaming-bubble"><span class="stream-cursor"></span></div>
         </div>
       `;
 
       messagesArea.appendChild(messageDiv);
+      const bubble = messageDiv.querySelector('.streaming-bubble');
 
-      window.responseText = '';
+      // Set up AbortController for this request
+      if (currentAbortController) currentAbortController.abort();
+      currentAbortController = new AbortController();
+      const signal = currentAbortController.signal;
+
+      let responseText = '';
       await callMentorApiStream(
         question,
         currentTryMentor.id,
@@ -3595,22 +3607,27 @@ async function simulateTryApiCall(question) {
         (chunk) => {
           if (!chunk || chunk.length === 0) return;
 
-          // First chunk means API started responding
-          if (window.responseText === '') {
-            stopPhraseRotation(); // Stop rotation when streaming starts
+          if (responseText === '') {
+            stopPhraseRotation();
             updateTypingStatus(`${currentTryMentor.name}正在回答...`);
           }
 
-          window.responseText += chunk;
-          appendResponseChunk(chunk);
-        }
+          responseText += chunk;
+          appendResponseChunk(chunk, bubble);
+        },
+        signal
       );
 
       showTryTyping(false);
-      finalResponse = window.responseText;
+      finalResponse = responseText;
     } catch (error) {
       stopPhraseRotation(); // Stop rotation on error
       showTryTyping(false);
+
+      // Aborted by user switching mentor — don't show error
+      if (error.name === 'AbortError') {
+        return '';
+      }
 
       // Better error messages
       if (error.message === 'Failed to fetch') {
@@ -3628,7 +3645,7 @@ node server.js
       }
 
       // Update bubble with error message
-      const bubble = document.getElementById('streaming-bubble');
+      const bubble = messagesArea.querySelector('.streaming-bubble:last-of-type');
       if (bubble) {
         const cursor = bubble.querySelector('.stream-cursor');
         if (cursor) cursor.remove();
@@ -3638,9 +3655,9 @@ node server.js
     }
   } else {
     // Use test mode — call real API with free tier
+    const messagesArea = document.getElementById('tryMessages');
     try {
       // Create streaming bubble first
-      const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'try-message mentor';
 
@@ -3651,16 +3668,19 @@ node server.js
         <div class="try-message-avatar">${avatar}</div>
         <div class="try-message-content">
           <div class="try-message-role">${roleName}</div>
-          <div class="try-message-bubble" id="streaming-bubble"><span class="stream-cursor"></span></div>
+          <div class="try-message-bubble streaming-bubble"><span class="stream-cursor"></span></div>
         </div>
       `;
 
       messagesArea.appendChild(messageDiv);
+      const bubble = messageDiv.querySelector('.streaming-bubble');
 
-      // Get the bubble
-      const bubble = messageDiv.querySelector('#streaming-bubble');
+      // Set up AbortController for this request
+      if (currentAbortController) currentAbortController.abort();
+      currentAbortController = new AbortController();
+      const signal = currentAbortController.signal;
 
-      window.responseText = '';
+      let responseText = '';
 
       // Call real API with free tier (pass null/undefined to trigger free tier)
       await callMentorApiStream(
@@ -3670,27 +3690,32 @@ node server.js
         (chunk) => {
           if (!chunk || chunk.length === 0) return;
 
-          // First chunk means API started responding
-          if (window.responseText === '') {
+          if (responseText === '') {
             stopPhraseRotation();
             updateTypingStatus(`${currentTryMentor.name}正在回答...`);
           }
 
-          window.responseText += chunk;
-          appendResponseChunk(chunk);
-        }
+          responseText += chunk;
+          appendResponseChunk(chunk, bubble);
+        },
+        signal
       );
 
       showTryTyping(false);
-      finalResponse = window.responseText;
+      finalResponse = responseText;
     } catch (error) {
       stopPhraseRotation();
       showTryTyping(false);
 
+      // Aborted by user switching mentor — don't show error
+      if (error.name === 'AbortError') {
+        return '';
+      }
+
       // Error handling for test mode
       finalResponse = `❌ 回复生成失败：${error.message}\n\n请刷新页面重试。`;
 
-      const bubble = document.getElementById('streaming-bubble');
+      const bubble = messagesArea.querySelector('.streaming-bubble:last-of-type');
       if (bubble) {
         bubble.innerHTML = finalResponse;
         addMessageActions(bubble);
@@ -3735,30 +3760,30 @@ async function sendTryMessage() {
     // Call API (handles both free tier and own key)
     const response = await simulateTryApiCall(question);
 
+    // If aborted (mentor switch), skip post-processing
+    if (response === '') return;
+
     // Finalize streaming bubble (for real API calls)
-    if (apiSettings) {
-      const bubble = document.getElementById('streaming-bubble');
-      if (bubble) {
-        // Remove the streaming cursor first
-        const cursor = bubble.querySelector('.stream-cursor');
-        if (cursor) cursor.remove();
+    const messagesArea = document.getElementById('tryMessages');
+    const bubble = messagesArea.querySelector('.streaming-bubble:last-of-type');
+    if (bubble && response) {
+      // Remove the streaming cursor first
+      const cursor = bubble.querySelector('.stream-cursor');
+      if (cursor) cursor.remove();
 
-        // Apply markdown processing to the complete response
-        const processedContent = processContent(response);
-        bubble.innerHTML = processedContent;
+      // Apply markdown processing to the complete response
+      const processedContent = processContent(response);
+      bubble.innerHTML = processedContent;
 
-        // Add action buttons
-        addMessageActions(bubble);
+      // Add action buttons
+      addMessageActions(bubble);
 
-        // Update message ID
-        const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-        bubble.id = messageId;
+      // Remove streaming class, set unique id
+      bubble.classList.remove('streaming-bubble');
+      const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      bubble.id = messageId;
 
-        saveToHistory('mentor', response, null);
-      }
-    } else {
-      // Free tier already handled by streamResponse()
-      // Just save to history if needed
+      saveToHistory('mentor', response, null);
     }
 
     // Only decrement quota for free tier
@@ -3769,7 +3794,8 @@ async function sendTryMessage() {
     }
   } catch (error) {
     // Show error in existing bubble if present, otherwise create new one
-    const bubble = document.getElementById('streaming-bubble');
+    const messagesArea = document.getElementById('tryMessages');
+    const bubble = messagesArea.querySelector('.streaming-bubble:last-of-type');
     let errorMessage = `❌ 调用失败：${error.message}`;
 
     // Better error messages for common issues
@@ -3788,6 +3814,7 @@ node server.js
     if (bubble) {
       bubble.innerHTML = errorMessage;
       addMessageActions(bubble);
+      bubble.classList.remove('streaming-bubble');
       const messageId = `msg-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
       bubble.id = messageId;
     } else {
