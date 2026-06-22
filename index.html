@@ -3498,13 +3498,14 @@ async function callMentorApiStream(question, mentorId, settings, onChunk, signal
           if (data.chunk) {
             onChunk(data.chunk);
           } else if (data.error) {
-            throw new Error(data.error);
+            const errMsg = data.hint || data.details || data.error;
+            throw new Error(errMsg);
           } else if (data.done) {
             return;
           }
         } catch (e) {
           if (e.name === 'AbortError') throw e;
-          console.error('Error parsing SSE data:', e);
+          throw e;
         }
       }
     }
@@ -3550,8 +3551,8 @@ async function simulateTryApiCall(question) {
 
   if (apiSettings) {
     // Use real API call with streaming
-    try {
-      // Check if the API key is the placeholder/fake one
+    const messagesArea = document.getElementById('tryMessages');
+    try {      // Check if the API key is the placeholder/fake one
       if (apiSettings.apiKey === 'your-api-key-here' || apiSettings.apiKey === 'fake-key-for-demo') {
         finalResponse = `⚠️ 请配置您的 API Key
 
@@ -3576,7 +3577,6 @@ async function simulateTryApiCall(question) {
       }
 
       // Create streaming bubble first
-      const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'try-message mentor';
 
@@ -3655,9 +3655,9 @@ node server.js
     }
   } else {
     // Use test mode — call real API with free tier
+    const messagesArea = document.getElementById('tryMessages');
     try {
       // Create streaming bubble first
-      const messagesArea = document.getElementById('tryMessages');
       const messageDiv = document.createElement('div');
       messageDiv.className = 'try-message mentor';
 
